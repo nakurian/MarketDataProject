@@ -4,8 +4,8 @@ import org.apache.spark.sql.functions._
 
 object NyseMarketDataApp {
   def main(args: Array[String]): Unit = {
-    val yesterday = "2024-05-07"
-    val today = "2024-05-08"
+    val yesterday = "2024-05-15"
+    val today = "2024-05-16"
     val spark = SparkSession.builder
       .appName("Simple Application")
       .config("spark.master", "local")

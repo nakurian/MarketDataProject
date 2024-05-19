@@ -1,13 +1,13 @@
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.expressions.Window
-import org.apache.spark.sql.functions.{avg, col, lit, round, sum, to_date, min, max, concat}
+import org.apache.spark.sql.functions._
 
 import scala.Console.println
 
 object NasdaqMarketDataApp {
   def main(args: Array[String]): Unit = {
-    val yesterday = "2024-05-07"
-    val today = "2024-05-08"
+    val yesterday = "2024-05-15"
+    val today = "2024-05-16"
     val spark = SparkSession.builder
       .appName("Simple Application")
       .config("spark.master", "local")
@@ -65,6 +65,9 @@ object NasdaqMarketDataApp {
         .withColumn("min180", min($"close").over(sixMonthWindowSpec))
         .withColumn("max180", max($"close").over(sixMonthWindowSpec))
         .withColumn("pct180d", (($"max180" - $"min180") / $"min180") * 100)
+        .withColumn("above10", when($"close" > $"ma10", 1).otherwise(0))
+        .withColumn("above20", when($"close" > $"ma20", 1).otherwise(0))
+        .withColumn("above50", when($"close" > $"ma50", 1).otherwise(0))
         .withColumn("symbolToCopy", concat(lit("NASDAQ:"), $"symbol", lit(",")))
         .filter($"dollarVolume" > 500000 and $"date1" === today)
         .cache()
@@ -175,7 +178,11 @@ object NasdaqMarketDataApp {
       .mode("overwrite")
       .option("header", "true")
       .save("nasdaq_pattern_screener")
-
+    val totalStocks = nasdaq_summary_df.filter($"close" > 5).count()
+    val above10 = nasdaq_summary_df.filter($"above10" === 1).count()
+    val above20 = nasdaq_summary_df.filter($"above20" === 1).count()
+    val above50 = nasdaq_summary_df.filter($"above50" === 1).count()
+    println("Total: " + totalStocks + " Above 10: "+ above10 +" Above 20: " + above20 + " Above 50: " + above50)
     spark.stop()
   }
 }
