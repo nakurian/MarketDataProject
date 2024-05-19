@@ -34,6 +34,7 @@ object IndiaNseDataApp {
         .withColumn("ma50", round($"ma50", 2))
         .withColumn("volumeMa10", avg($"volume").over(ma10WindowSpec))
         .withColumn("volumeMa10", round($"volumeMa10", 2))
+        .withColumn("ma20lacs", avg($"in_lacs").over(ma20WindowSpec))
         .orderBy($"date1".desc)
         .withColumn("range", ($"high" / $"low"))
         .withColumn("avgRange", sum($"range").over(range20WindowSpec))
@@ -62,7 +63,7 @@ object IndiaNseDataApp {
         .withColumn("symbolToCopy", concat(lit("NSE:"), $"symbol", lit(",")))
         .withColumn("symbolToCopy", regexp_replace($"symbolToCopy", lit("&"), lit("_")))
         .withColumn("symbolToCopy", regexp_replace($"symbolToCopy", lit("-"), lit("_")))
-        .filter($"in_lacs" > 10 and $"date1" === today)
+        .filter($"ma20lacs" > 10 and $"date1" === today)
         .cache()
 
     nse_summary_df.show(10)
@@ -144,6 +145,7 @@ object IndiaNseDataApp {
       nse_summary_raw
         .withColumn("volumeMa10", avg($"volume".cast("Double")).over(ma10WindowSpec))
         .withColumn("volumeMa10", round($"volumeMa10", 2))
+        .withColumn("ma20lacs", avg($"in_lacs").over(ma20WindowSpec))
         .orderBy($"date1".desc)
         //.withColumn("dollarVolume", $"volumeMa10" * $"close")
         .withColumn("range", ($"high" / $"low"))
@@ -152,13 +154,14 @@ object IndiaNseDataApp {
         .withColumn("symbolToCopy", concat(lit("NSE:"), $"symbol", lit(",")))
         .withColumn("symbolToCopy", regexp_replace($"symbolToCopy", lit("&"), lit("_")))
         .withColumn("symbolToCopy", regexp_replace($"symbolToCopy", lit("-"), lit("_")))
-        .filter($"in_lacs" > 10 and $"date1" === today)
+        .filter($"ma20lacs" > 10 and $"date1" === today)
         .cache()
 
     val nse_yesterday_df =
       nse_summary_raw
         .withColumn("volumeMa10", avg($"volume".cast("Double")).over(ma10WindowSpec))
         .withColumn("volumeMa10", round($"volumeMa10", 2))
+        .withColumn("ma20lacs", avg($"in_lacs").over(ma20WindowSpec))
         .orderBy($"date1".desc)
         //.withColumn("dollarVolume", $"volumeMa10" * $"close")
         .withColumn("range", ($"high" / $"low"))
@@ -167,7 +170,7 @@ object IndiaNseDataApp {
         .withColumn("symbolToCopy", concat(lit("NSE:"), $"symbol", lit(",")))
         .withColumn("symbolToCopy", regexp_replace($"symbolToCopy", lit("&"), lit("_")))
         .withColumn("symbolToCopy", regexp_replace($"symbolToCopy", lit("-"), lit("_")))
-        .filter($"in_lacs" > 10 and $"date1" === yesterday)
+        .filter($"ma20lacs" > 10 and $"date1" === yesterday)
         .cache()
 
     val patternDf = nse_today_df.as("t")

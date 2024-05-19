@@ -41,6 +41,7 @@ object IndiaMarketDataApp {
         .withColumn("ma50", avg($"close").over(ma50WindowSpec))
         .withColumn("ma50", round($"ma50", 2))
         .withColumn("volumeMa10", avg($"volume").over(ma10WindowSpec))
+        .withColumn("ma20lacs", avg($"in_lacs").over(ma20WindowSpec))
         .withColumn("volumeMa10", round($"volumeMa10", 2))
         .orderBy($"date1".desc)
         .withColumn("range", ($"high" / $"low"))
@@ -70,7 +71,7 @@ object IndiaMarketDataApp {
         .withColumn("symbolToCopy", concat(lit("BSE:"), $"symbol", lit(",")))
         .withColumn("symbolToCopy", regexp_replace($"symbolToCopy", lit("&"), lit("_")))
         .withColumn("symbolToCopy", regexp_replace($"symbolToCopy", lit("-"), lit("_")))
-        .filter($"in_lacs" > 10 and $"date1" === today)
+        .filter($"ma20lacs" > 10 and $"date1" === today)
         .cache()
 
     bse_summary_df.show(10)
@@ -145,6 +146,7 @@ object IndiaMarketDataApp {
       bse_summary_raw
         .withColumn("volumeMa10", avg($"volume".cast("Double")).over(ma10WindowSpec))
         .withColumn("volumeMa10", round($"volumeMa10", 2))
+        .withColumn("ma20lacs", avg($"in_lacs").over(ma20WindowSpec))
         .orderBy($"date1".desc)
         //.withColumn("dollarVolume", $"volumeMa10" * $"close")
         .withColumn("range", ($"high" / $"low"))
@@ -153,13 +155,14 @@ object IndiaMarketDataApp {
         .withColumn("symbolToCopy", concat(lit("BSE:"), $"symbol", lit(",")))
         .withColumn("symbolToCopy", regexp_replace($"symbolToCopy", lit("&"), lit("_")))
         .withColumn("symbolToCopy", regexp_replace($"symbolToCopy", lit("-"), lit("_")))
-        .filter($"in_lacs" > 10 and $"date1" === today)
+        .filter($"ma20lacs" > 10 and $"date1" === today)
         .cache()
 
     val bse_yesterday_df =
       bse_summary_raw
         .withColumn("volumeMa10", avg($"volume".cast("Double")).over(ma10WindowSpec))
         .withColumn("volumeMa10", round($"volumeMa10", 2))
+        .withColumn("ma20lacs", avg($"in_lacs").over(ma20WindowSpec))
         .orderBy($"date1".desc)
         //.withColumn("dollarVolume", $"volumeMa10" * $"close")
         .withColumn("range", ($"high" / $"low"))
@@ -168,7 +171,7 @@ object IndiaMarketDataApp {
         .withColumn("symbolToCopy", concat(lit("BSE:"), $"symbol", lit(",")))
         .withColumn("symbolToCopy", regexp_replace($"symbolToCopy", lit("&"), lit("_")))
         .withColumn("symbolToCopy", regexp_replace($"symbolToCopy", lit("-"), lit("_")))
-        .filter($"in_lacs" > 10 and $"date1" === yesterday)
+        .filter($"ma20lacs" > 10 and $"date1" === yesterday)
         .cache()
 
     val patternDf = bse_today_df.as("t")
