@@ -132,46 +132,6 @@ object NasdaqMarketDataApp {
       .mode("overwrite")
       .save("nasdaq_combine")
 
-    //Screener with candle pattern
-    /*val nasdaq_today_df =
-      nasdaq_summary_raw.withColumn("date1", to_date(col("date"), "yyyyMMdd")).drop("date")
-        .withColumn("volumeMa10", avg($"volume".cast("Double")).over(ma10WindowSpec))
-        .withColumn("volumeMa10", round($"volumeMa10", 2))
-        .orderBy($"date1".desc)
-        .withColumn("dollarVolume", $"volumeMa10" * $"close")
-        .withColumn("range", ($"high" / $"low"))
-        .withColumn("avgRange", sum($"range").over(range20WindowSpec))
-        .withColumn("adr", (($"avgRange".cast("Double") / 20) - 1) * 100)
-        .withColumn("symbolToCopy", concat(lit("NASDAQ:"), $"symbol", lit(",")))
-        .filter($"dollarVolume" > 500000 and $"date1" === today)
-        .cache()
-
-    val nasdaq_yesterday_df =
-      nasdaq_summary_raw.withColumn("date1", to_date(col("date"), "yyyyMMdd")).drop("date")
-        .withColumn("volumeMa10", avg($"volume".cast("Double")).over(ma10WindowSpec))
-        .withColumn("volumeMa10", round($"volumeMa10", 2))
-        .orderBy($"date1".desc)
-        .withColumn("dollarVolume", $"volumeMa10" * $"close")
-        .withColumn("range", ($"high" / $"low"))
-        .withColumn("avgRange", sum($"range").over(range20WindowSpec))
-        .withColumn("adr", (($"avgRange".cast("Double") / 20) - 1) * 100)
-        .withColumn("symbolToCopy", concat(lit("NASDAQ:"), $"symbol", lit(",")))
-        .filter($"dollarVolume" > 500000 and $"date1" === yesterday)
-        .cache()
-
-    val patternDf = nasdaq_today_df.as("t")
-      .join(nasdaq_yesterday_df.as("y"), $"t.symbol" === $"y.symbol")
-      .filter($"y.close" > $"t.open" && $"y.open" - $"y.close" > 0
-        && $"t.close" >= ($"y.close" + ($"y.open" - $"y.close") / 2))
-      .filter($"t.close" > 5 && $"t.adr" > 3)
-      .select($"t.symbolToCopy")
-
-    patternDf
-      .coalesce(1)
-      .write.format("text")
-      .mode("overwrite")
-      .save("nasdaq_pattern_screener")*/
-
     val totalStocks = nasdaq_summary_df.filter($"close" > 5).count()
     val above10 = nasdaq_summary_df.filter($"above10" === 1 && $"above20" === 1 && $"above50" === 1 && $"above150" === 1 ).count()
     val above20 = nasdaq_summary_df.filter($"above20" === 1 && $"above50" === 1 && $"above150" === 1).count()
@@ -187,16 +147,6 @@ object NasdaqMarketDataApp {
       .write.format("text")
       .mode("overwrite")
       .save("nasdaq_best_stocks")
-
-    //Screener for narrow candles
-   /* universeDf_Narrow.as("n")
-      .join(bestUptrendDf.as("u"), Seq("symbolToCopy"), "inner").select($"u.symbolToCopy")
-      .coalesce(1)
-      .write
-      .format("text")
-      .mode("overwrite")
-      //.option("header", "true")
-      .save("nasdaq_narrow_candles")*/
 
     nasdaq_summary_df.filter($"above20" === 1 && $"above50" === 1 && $"above150" === 1 )
       .filter($"close" <= 10 && $"pct90d" >= 70).select("symbolToCopy")

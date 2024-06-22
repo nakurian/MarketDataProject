@@ -131,46 +131,6 @@ object NyseMarketDataApp {
       .mode("overwrite")
       .save("nyse_combine")
 
-
-    //Screener with candle pattern
-   /* val nyse_today_df =
-      nyse_summary
-        .withColumn("volumeMa10", avg($"volume".cast("Double")).over(ma10WindowSpec))
-        .withColumn("volumeMa10", round($"volumeMa10", 2))
-        .orderBy($"date1".desc)
-        .withColumn("dollarVolume", $"volumeMa10" * $"close")
-        .withColumn("range", ($"high" / $"low"))
-        .withColumn("avgRange", sum($"range").over(range20WindowSpec))
-        .withColumn("adr", (($"avgRange".cast("Double") / 20) - 1) * 100)
-        .withColumn("symbolToCopy", concat(lit("nyse:"), $"symbol", lit(",")))
-        .filter($"dollarVolume" > 500000 and $"date1" === today)
-        .cache()
-
-    val nyse_yesterday_df =
-      nyse_summary
-        .withColumn("volumeMa10", avg($"volume".cast("Double")).over(ma10WindowSpec))
-        .withColumn("volumeMa10", round($"volumeMa10", 2))
-        .orderBy($"date1".desc)
-        .withColumn("dollarVolume", $"volumeMa10" * $"close")
-        .withColumn("range", ($"high" / $"low"))
-        .withColumn("avgRange", sum($"range").over(range20WindowSpec))
-        .withColumn("adr", (($"avgRange".cast("Double") / 20) - 1) * 100)
-        .withColumn("symbolToCopy", concat(lit("nyse:"), $"symbol", lit(",")))
-        .filter($"dollarVolume" > 500000 and $"date1" === yesterday)
-        .cache()
-
-    nyse_today_df.as("t")
-      .join(nyse_yesterday_df.as("y"), Seq("symbol"))
-      .filter($"y.close" > $"t.open" && $"y.open" - $"y.close" > 0
-        && $"t.close" >= ($"y.close" + ($"y.open" - $"y.close") / 2))
-      .filter($"t.close" > 5 && $"t.adr" > 3)
-      .select($"t.symbolToCopy")
-      .coalesce(1)
-      .write.format("text")
-      .mode("overwrite")
-      //.option("header", "true")
-      .save("nyse_pattern_screener")*/
-
     val totalStocks = nyse_summary_df.filter($"close" > 5).count()
     val above10 = nyse_summary_df.filter($"above10" === 1 && $"above20" === 1 && $"above50" === 1 && $"above150" === 1 ).count()
     val above20 = nyse_summary_df.filter($"above20" === 1 && $"above50" === 1 && $"above150" === 1).count()
@@ -180,14 +140,6 @@ object NyseMarketDataApp {
         && $"above50" === 1 && $"above150" === 1
         && $"close" > 9)
 
-    //Screener for narrow candles
-   /* universeDf_Narrow.as("n")
-      .join(bestUptrendDf.as("u"), Seq("symbolToCopy"), "inner").select($"u.symbolToCopy")
-      .coalesce(1)
-      .write.format("text")
-      .mode("overwrite")
-      //.option("header", "true")
-      .save("nyse_narrow_candles")*/
 
     bestUptrendDf.filter($"adr" >= 5).select("symbolToCopy")
       .coalesce(1)
