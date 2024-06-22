@@ -1,13 +1,11 @@
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.expressions.Window
-import org.apache.spark.sql.functions.{avg, col, concat, lit, max, min, regexp_replace, replace, round, sum, to_date, when}
-
-import scala.Console.println
+import org.apache.spark.sql.functions._
 
 object IndiaMarketDataApp {
   def main(args: Array[String]): Unit = {
-    val yesterday = "2024-05-16"
-    val today = "2024-05-17"
+    val yesterday = "2024-06-13"
+    val today = "2024-06-14"
     val spark = SparkSession.builder
       .appName("Simple Application")
       .config("spark.master", "local")
@@ -25,8 +23,10 @@ object IndiaMarketDataApp {
     import spark.implicits._
     val bse_summary = bse_summary_raw
     val ma10WindowSpec = Window.partitionBy($"symbol").orderBy($"date1".asc).rowsBetween(-9, 0)
+    val ma15WindowSpec = Window.partitionBy($"symbol").orderBy($"date1".asc).rowsBetween(-14, 0)
     val ma20WindowSpec = Window.partitionBy($"symbol").orderBy($"date1".asc).rowsBetween(-19, 0)
     val ma50WindowSpec = Window.partitionBy($"symbol").orderBy($"date1".asc).rowsBetween(-49, 0)
+    val ma150WindowSpec = Window.partitionBy($"symbol").orderBy($"date1".asc).rowsBetween(-149, 0)
     val monthWindowSpec = Window.partitionBy($"symbol").orderBy($"date1".asc).rowsBetween(-29, 0)
     val twoMonthWindowSpec = Window.partitionBy($"symbol").orderBy($"date1".asc).rowsBetween(-59, 0)
     val threeMonthWindowSpec = Window.partitionBy($"symbol").orderBy($"date1".asc).rowsBetween(-89, 0)
@@ -40,6 +40,8 @@ object IndiaMarketDataApp {
         .withColumn("ma20", round($"ma20", 2))
         .withColumn("ma50", avg($"close").over(ma50WindowSpec))
         .withColumn("ma50", round($"ma50", 2))
+        .withColumn("ma150", avg($"close".cast("Double")).over(ma150WindowSpec))
+        .withColumn("ma150", round($"ma150", 2))
         .withColumn("volumeMa10", avg($"volume").over(ma10WindowSpec))
         .withColumn("ma20lacs", avg($"in_lacs").over(ma20WindowSpec))
         .withColumn("volumeMa10", round($"volumeMa10", 2))
@@ -50,6 +52,9 @@ object IndiaMarketDataApp {
         .withColumn("min10", min($"close").over(ma10WindowSpec))
         .withColumn("max10", max($"close").over(ma10WindowSpec))
         .withColumn("pct10d", (($"max10" - $"min10") / $"min10") * 100)
+        .withColumn("min15", min($"close").over(ma15WindowSpec))
+        .withColumn("max15", max($"close").over(ma15WindowSpec))
+        .withColumn("pct15d", (($"max15" - $"min15") / $"min15") * 100)
         .withColumn("min20", min($"close").over(ma20WindowSpec))
         .withColumn("max20", max($"close").over(ma20WindowSpec))
         .withColumn("pct20d", (($"max20" - $"min20") / $"min20") * 100)
@@ -74,47 +79,44 @@ object IndiaMarketDataApp {
         .filter($"ma20lacs" > 10 and $"date1" === today)
         .cache()
 
-    bse_summary_df.show(10)
-
-    val move10Df = bse_summary_df
-      .filter(($"close" > ($"min10" + ($"min10" * 0.10))) && ($"pct10d" > 20) && ($"adr" >= 4) && ($"close" >= 5))
+    val move15Df = bse_summary_df
+      .filter(($"close" > ($"min15" + ($"min15" * 0.10))) && ($"pct15d" > 20) && ($"close" >= 9))
     val universeDf_Narrow = bse_summary_df
-      .filter(($"pctchange" > -1 && $"pctchange" < 1) && ($"adr" >= 4) && ($"close" >= 5))
-    val move20Df = bse_summary_df
-      .filter(($"close" > ($"min20" + ($"min20" * 0.10))) && ($"pct20d" > 20) && ($"adr" >= 4) && ($"close" >= 5))
-    val move30Df = bse_summary_df
-      .filter(($"close" > ($"min30" + ($"min30" * 0.30))) && ($"pct30d" > 30) && ($"adr" >= 4) && ($"close" >= 5))
-    val move60Df = bse_summary_df
-      .filter(($"close" > ($"min60" + ($"min60" * 0.20))) && ($"pct60d" > 30) && ($"adr" >= 4) && ($"close" >= 5))
-    val move90Df = bse_summary_df
-      .filter(($"close" > ($"min90" + ($"min90" * 0.40))) && ($"pct90d" > 40) && ($"adr" >= 4) && ($"close" >= 5))
-    val move180Df = bse_summary_df
-      .filter(($"close" > ($"min180" + ($"min180" * 0.50))) && ($"pct180d" > 50) && ($"adr" >= 4) && ($"close" >= 5))
+      .filter(($"pctchange" > -1 && $"pctchange" < 1)  && ($"close" >= 5)) //&& ($"adr" >=3)
 
-    move10Df
+    val move30Df = bse_summary_df
+      .filter(($"close" > ($"min30" + ($"min30" * 0.30))) && ($"pct30d" > 30) &&  $"close" >= $"ma150" && ($"adr" >=2) && ($"close" >= 9))
+    val move90Df = bse_summary_df
+      .filter(($"close" > ($"min90" + ($"min90" * 0.40))) && ($"pct90d" > 70)  &&  $"close" >= $"ma150" && ($"adr" >=2) && ($"close" >= 9))
+    val move180Df = bse_summary_df
+      .filter(($"close" > ($"min180" + ($"min180" * 0.50))) && ($"pct180d" > 90) &&  $"close" >= $"ma150" && ($"adr" >=2) && ($"close" >= 9))
+
+    val valueDf = bse_summary_df
+      .filter(($"close" <= $"ma10" && $"close" >= $"ma150") && ($"adr" >= 3) && ($"close" > 9))
+
+    move15Df.select("symbolToCopy")
       .coalesce(1)
-      .write.format("com.databricks.spark.csv")
+      .write.format("text")
       .mode("overwrite")
-      .option("header", "true")
       .save("india_bse_ma10_move")
 
 //    move30Df
 //      .coalesce(1)
-//      .write.format("com.databricks.spark.csv")
+//      .write.format("text")
 //      .mode("overwrite")
 //      .option("header", "true")
 //      .save("india_bse_ma30_move")
 
 //    move90Df
 //      .coalesce(1)
-//      .write.format("com.databricks.spark.csv")
+//      .write.format("text")
 //      .mode("overwrite")
 //      .option("header", "true")
 //      .save("india_bse_ma90_move")
 
 //    move180Df
 //      .coalesce(1)
-//      .write.format("com.databricks.spark.csv")
+//      .write.format("text")
 //      .mode("overwrite")
 //      .option("header", "true")
 //      .save("india_bse_ma180_move")
@@ -126,7 +128,7 @@ object IndiaMarketDataApp {
 
 //    universeDf
 //      .coalesce(1)
-//      .write.format("com.databricks.spark.csv")
+//      .write.format("text")
 //      .mode("overwrite")
 //      .option("header", "true")
 //      .save("india_bse_combine")
@@ -136,7 +138,7 @@ object IndiaMarketDataApp {
 //      .join(universeDf.as("u"), Seq("symbolToCopy"), "inner").select($"u.symbolToCopy")
 //      .coalesce(1)
 //      .write
-//      .format("com.databricks.spark.csv")
+//      .format("text")
 //      .mode("overwrite")
 //      .option("header", "true")
 //      .save("india_bse_narrow_candles")
@@ -181,11 +183,10 @@ object IndiaMarketDataApp {
       .filter($"t.close" > 5 && $"t.adr" > 3)
       .select($"t.symbolToCopy")
 
-    patternDf
+    patternDf.select("symbolToCopy")
       .coalesce(1)
-      .write.format("com.databricks.spark.csv")
+      .write.format("text")
       .mode("overwrite")
-      .option("header", "true")
       .save("india_bse_pattern_screener")
 
 //    val totalStocks = bse_summary_df.filter($"close" > 5).count()
@@ -194,7 +195,7 @@ object IndiaMarketDataApp {
 //    val above50 = bse_summary_df.filter($"above50" === 1).count()
 //    println("Total: " + totalStocks + " Above 10: " + above10 + " Above 20: " + above20 + " Above 50: " + above50)
 
-    IndiaNseDataApp.runNse(spark, move10Df)
+    IndiaNseDataApp.runNse(spark, move15Df)
     spark.stop()
   }
 }
