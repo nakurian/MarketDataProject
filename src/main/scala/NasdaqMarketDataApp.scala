@@ -6,8 +6,7 @@ import scala.Console.println
 
 object NasdaqMarketDataApp {
   def main(args: Array[String]): Unit = {
-    val yesterday = "2024-06-20"
-    val today = "2024-06-21"
+    val today = "2024-08-09"
     val spark = SparkSession.builder
       .appName("Simple Application")
       .config("spark.master", "local")
@@ -81,56 +80,41 @@ object NasdaqMarketDataApp {
         .withColumn("above50", when($"close" > $"ma50", 1).otherwise(0))
         .withColumn("above150", when($"close" > $"ma150", 1).otherwise(0))
         .withColumn("symbolToCopy", concat(lit("NASDAQ:"), $"symbol", lit(",")))
-        .filter($"dollarVolume" > 1000000 and $"date1" === today)
+        .filter($"dollarVolume" > 2000000 and $"date1" === today)
         .cache()
 
     val move15Df = nasdaq_summary_df
-      .filter(($"close" > ($"min15" + ($"min15" * 0.10))) && ($"pct15d" > 20)  && ($"close" >= 9)) //&& ($"adr" >= 4)
-    val universeDf_Narrow = nasdaq_summary_df
-      .filter(($"stockpctchange" > -1 && $"stockpctchange" < 1)  && ($"close" >= 5)) //&& ($"adr" >= 3)
+      .filter(($"close" > ($"min15" + ($"min15" * 0.10))) && ($"pct15d" > 20)  && ($"close" >= 20)) //&& ($"adr" >= 4)
+    //val universeDf_Narrow = nasdaq_summary_df.filter(($"stockpctchange" > -1 && $"stockpctchange" < 1)  && ($"close" >= 5)) //&& ($"adr" >= 3)
 
     val move30Df = nasdaq_summary_df
-      .filter(($"close" > ($"min30" + ($"min30" * 0.30))) && ($"pct30d" > 30)  &&  $"close" >= $"ma150" && ($"adr" >= 2) && ($"close" >= 9))
+      .filter(($"close" > ($"min30" + ($"min30" * 0.30))) && ($"pct30d" > 30)  &&  $"close" >= $"ma150" && ((($"max30" - $"close")/$"max30")*100) <10 && ($"adr" >= 4.8) && ($"close" >= 20))
     val move90Df = nasdaq_summary_df
-      .filter(($"close" > ($"min90" + ($"min90" * 0.40))) && ($"pct90d" > 70) &&  $"close" >= $"ma150" && ($"adr" >= 2) && ($"close" >= 9))
+      .filter(($"close" > ($"min90" + ($"min90" * 0.40))) && ($"pct90d" > 70) &&  $"close" >= $"ma150" && ((($"max90" - $"close")/$"max90")*100) <20 && ($"adr" >= 4.8) && ($"close" >= 20))
     val move180Df = nasdaq_summary_df
-      .filter(($"close" > ($"min180" + ($"min180" * 0.50))) && ($"pct180d" > 90) &&  $"close" >= $"ma150" && ($"adr" >= 2) && ($"close" >= 9))
+      .filter(($"close" > ($"min180" + ($"min180" * 0.50))) && ($"pct180d" > 90) &&  $"close" >= $"ma150" && ((($"max180" - $"close")/$"max180")*100) <40 && ($"adr" >= 4.8) && ($"close" >= 20))
 
-    val valueDf = nasdaq_summary_df
-      .filter(($"close" <= $"ma10" && $"close" >= $"ma150") && ($"adr" >= 3) && ($"close" > 9))
-
-    val floatCalcDf = outstandingDf.as("o").join(nasdaq_summary_df.as("s"), Seq("symbol"), "inner")
-      .filter($"o.outstanding"/$"s.volumeSum90" < 1.42 && $"s.close" > 9 && $"o.outstanding" > 0
-        && $"s.close" >= $"s.ma150").select("symbolToCopy")
-
-    floatCalcDf.coalesce(1)
-      .write.format("text")
-      .mode("overwrite")
-      .save("nasdaq_float_stocks")
-
-    valueDf.select("symbolToCopy")
+    nasdaq_summary_df.filter(($"pct30d" > 50) && ($"adr" >= 5) && $"close" >= $"ma150" && ($"close" <= 5))
+      .select("symbolToCopy")//.filter($"pct180d" > 500).select("symbolToCopy")
       .coalesce(1)
       .write.format("text")
-      .mode("overwrite")
-      .save("nasdaq_value_stocks")
-
-    move15Df.select("symbolToCopy")
-      .coalesce(1)
-      .write.format("text")
-      .mode("overwrite")
-      .save("nasdaq_ma15_move")
+      .mode("overwrite").save("nasdaq/nasdaq_million")
+      //.save("nasdaq/nasdaq_penny_stocks")
 
 
-    val universeDf = move30Df.select("symbolToCopy")
-      .union(move90Df.select("symbolToCopy"))
-      .union(move180Df.select("symbolToCopy"))
-      .distinct()
+    //val valueDf = nasdaq_summary_df.filter(($"close" <= $"ma10" && $"close" >= $"ma150") && ($"adr" >= 3) && ($"close" > 9))
 
-    universeDf
-      .coalesce(1)
-      .write.format("text")
-      .mode("overwrite")
-      .save("nasdaq_combine")
+    //val floatCalcDf = outstandingDf.as("o").join(nasdaq_summary_df.as("s"), Seq("symbol"), "inner").filter($"o.outstanding"/$"s.volumeSum90" < 1.42 && $"s.close" > 9 && $"o.outstanding" > 0 && $"s.close" >= $"s.ma150").select("symbolToCopy")
+
+    //floatCalcDf.coalesce(1).write.format("text").mode("overwrite").save("nasdaq/nasdaq_float_stocks")
+
+    //valueDf.select("symbolToCopy").coalesce(1).write.format("text").mode("overwrite").save("nasdaq/nasdaq_value_stocks")
+
+    move15Df.select("symbolToCopy").coalesce(1).write.format("text").mode("overwrite").save("nasdaq/nasdaq_ma15_move")
+
+
+    val universeDf = move30Df.select("symbolToCopy").union(move90Df.select("symbolToCopy")).union(move180Df.select("symbolToCopy")).distinct()
+    universeDf.coalesce(1).write.format("text").mode("overwrite").save("nasdaq/nasdaq_combine")
 
     val totalStocks = nasdaq_summary_df.filter($"close" > 5).count()
     val above10 = nasdaq_summary_df.filter($"above10" === 1 && $"above20" === 1 && $"above50" === 1 && $"above150" === 1 ).count()
@@ -146,42 +130,42 @@ object NasdaqMarketDataApp {
       .coalesce(1)
       .write.format("text")
       .mode("overwrite")
-      .save("nasdaq_best_stocks")
+      .save("nasdaq/nasdaq_best_stocks")
 
-    nasdaq_summary_df.filter($"above20" === 1 && $"above50" === 1 && $"above150" === 1 )
-      .filter($"close" <= 10 && $"pct90d" >= 70).select("symbolToCopy")
-      .coalesce(1)
-      .write.format("text")
-      .mode("overwrite")
-      .save("nasdaq_best_under10")
-
-    nasdaq_summary_df.filter($"above50" === 1 && $"above150" === 1 )
-      .filter($"close" > 10 &&  $"close" <= 30 && $"pct90d" >= 70).select("symbolToCopy")
-      .coalesce(1)
-      .write.format("text")
-      .mode("overwrite")
-      .save("nasdaq_best_under30")
-
-    nasdaq_summary_df.filter($"above50" === 1 && $"above150" === 1 )
-      .filter($"close" > 30 &&  $"close" <= 50 && $"pct90d" >= 70).select("symbolToCopy")
-      .coalesce(1)
-      .write.format("text")
-      .mode("overwrite")
-      .save("nasdaq_best_under50")
-
-    nasdaq_summary_df.filter($"above50" === 1 && $"above150" === 1 )
-      .filter($"close" > 50 &&  $"close" <= 100 && $"pct90d" >= 70).select("symbolToCopy")
-      .coalesce(1)
-      .write.format("text")
-      .mode("overwrite")
-      .save("nasdaq_best_under100")
-
-    nasdaq_summary_df.filter($"above50" === 1 && $"above150" === 1 )
-      .filter($"close" > 100 && $"pct90d" >= 70).select("symbolToCopy")
-      .coalesce(1)
-      .write.format("text")
-      .mode("overwrite")
-      .save("nasdaq_best_above100")
+//    nasdaq_summary_df.filter($"above20" === 1 && $"above50" === 1 && $"above150" === 1 )
+//      .filter($"close" <= 10 && $"pct90d" >= 70 && $"adr" >=5 ).select("symbolToCopy")
+//      .coalesce(1)
+//      .write.format("text")
+//      .mode("overwrite")
+//      .save("nasdaq/nasdaq_best_under10")
+//
+//    nasdaq_summary_df.filter($"above50" === 1 && $"above150" === 1 )
+//      .filter($"close" > 10 &&  $"close" <= 30 && $"pct90d" >= 70 && $"adr" >=5).select("symbolToCopy")
+//      .coalesce(1)
+//      .write.format("text")
+//      .mode("overwrite")
+//      .save("nasdaq/nasdaq_best_under30")
+//
+//    nasdaq_summary_df.filter($"above50" === 1 && $"above150" === 1 )
+//      .filter($"close" > 30 &&  $"close" <= 50 && $"pct90d" >= 70 && $"adr" >=5).select("symbolToCopy")
+//      .coalesce(1)
+//      .write.format("text")
+//      .mode("overwrite")
+//      .save("nasdaq/nasdaq_best_under50")
+//
+//    nasdaq_summary_df.filter($"above50" === 1 && $"above150" === 1 )
+//      .filter($"close" > 50 &&  $"close" <= 100 && $"pct90d" >= 60 && $"adr" >=5).select("symbolToCopy")
+//      .coalesce(1)
+//      .write.format("text")
+//      .mode("overwrite")
+//      .save("nasdaq/nasdaq_best_under100")
+//
+//    nasdaq_summary_df.filter($"above50" === 1 && $"above150" === 1 )
+//      .filter($"close" > 100 && $"pct90d" >= 50 && $"adr" >=5).select("symbolToCopy")
+//      .coalesce(1)
+//      .write.format("text")
+//      .mode("overwrite")
+//      .save("nasdaq/nasdaq_best_above100")
 
     val best_uptrend = bestUptrendDf.count()
     println("Total: " + totalStocks + " Above 10: "+ above10 +" Above 20: " + above20 + " Above 50: " + above50)
